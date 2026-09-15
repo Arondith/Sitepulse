@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: sitepulse
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Run setup first}
+      POSTGRES_DB: sitepulse
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sitepulse"]
+      interval: 3s
+      retries: 20
+  mongo:
+    image: mongo:8.0
+    volumes: [mongodata:/data/db]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      retries: 20
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: postgres://sitepulse:${DB_PASSWORD}@postgres:5432/sitepulse
+      API_TOKEN: ${API_TOKEN:?Run setup first}
+      RESULTS_URL: http://worker:8081
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: unless-stopped
+  worker:
+    build: {context: ., dockerfile: worker/Dockerfile}
+    environment:
+      DATABASE_URL: postgres://sitepulse:${DB_PASSWORD}@postgres:5432/sitepulse
+      MONGO_URL: mongodb://mongo:27017
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://fixture}
+    depends_on:
+      postgres: {condition: service_healthy}
+      mongo: {condition: service_healthy}
+      fixture: {condition: service_started}
+    init: true
+    shm_size: 256mb
+    restart: unless-stopped
+  web:
+    build: {context: ., dockerfile: web/Dockerfile}
+    ports: ["127.0.0.1:8080:80"]
+    depends_on: [api, worker]
+  fixture:
+    image: nginx:1.27-alpine
+    volumes: [./fixture:/usr/share/nginx/html:ro]
+volumes:
+  pgdata:
+  mongodata:

@@ -1,0 +1,20 @@
+{
+  "name": "sitepulse",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && esbuild web/app.ts --bundle --outfile=web/dist/app.js",
+    "test": "node --test worker/*.test.mjs",
+    "worker": "node worker/main.mjs"
+  },
+  "dependencies": {
+    "mongodb": "6.16.0",
+    "pg": "8.16.0",
+    "puppeteer": "25.11.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.5",
+    "typescript": "5.8.3"
+  }
+}
